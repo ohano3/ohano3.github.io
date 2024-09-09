@@ -165,6 +165,7 @@
                     if (validCircles === expectedCircleCount && checkValidPlacement(sim.circles, sim.canvas.width, sim.canvas.height)) {
                         sim.isSimulating = false;
                         sim.canvas.parentElement.classList.add('success');
+                        drawCircleLabels(sim.ctx, sim.circles); // 直径ラベルを追加
                     } else {
                         allValid = false;
                     }
@@ -273,6 +274,18 @@
             ctx.beginPath();
             ctx.arc(circle.x, circle.y, circle.r, 0, Math.PI * 2);
             ctx.stroke();
+        });
+    }
+
+    function drawCircleLabels(ctx, circles) {
+        ctx.font = '36px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'black';
+
+        circles.forEach(circle => {
+            const diameter = Math.round(circle.r * 2);
+            ctx.fillText(diameter.toString(), circle.x, circle.y);
         });
     }
 
