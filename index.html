@@ -154,7 +154,7 @@
         let currentStage = 0;
 
         function optimizationStep() {
-            if (currentStage >= stages.length || simulations.every(sim => !sim.isSimulating)) {
+            if (currentStage >= stages.length) {
                 simulations.forEach((sim, index) => {
                     if (checkValidPlacement(sim.circles, sim.canvas.width, sim.canvas.height)) {
                         sim.isSimulating = false;
@@ -162,12 +162,18 @@
                     }
                 });
 
-                if (simulations.some(sim => !sim.isSimulating)) {
-                    resultMessage.textContent = '有効な配置が見つかりました';
+                if (simulations.every(sim => !sim.isSimulating)) {
+                    resultMessage.textContent = 'すべての配置が見つかりました';
                 } else {
-                    resultMessage.textContent = '有効な配置が見つかりませんでした';
-                    currentStage = 0; // 再試行
+                    resultMessage.textContent = '一部の配置が見つかりました。再試行中...';
+                    currentStage = 0;
+                    simulations.forEach(sim => {
+                        if (sim.isSimulating) {
+                            initializeSimulation(sim);
+                        }
+                    });
                 }
+                requestAnimationFrame(optimizationStep);
                 return;
             }
 
@@ -187,6 +193,26 @@
         }
 
         requestAnimationFrame(optimizationStep);
+    }
+
+    function initializeSimulation(sim) {
+        const rectWidth = sim.canvas.width;
+        const rectHeight = sim.canvas.height;
+        const circleSizes = sim.circles.map(circle => circle.r * 2);
+
+        // 円を大きさでソート（大きい順）
+        const sortedCircles = circleSizes.map((size, index) => ({ size, index }))
+            .sort((a, b) => b.size - a.size);
+
+        // 円の初期配置を調整
+        sim.circles = sortedCircles.map(({ size, index }, i) => {
+            const r = size / 2;
+            const x = Math.random() * (rectWidth - 2 * r) + r;
+            const y = ((sortedCircles.length - 1 - i) / (sortedCircles.length - 1)) * (rectHeight - 2 * r) + r;
+            return { x, y, r, originalIndex: index };
+        });
+
+        drawCircles(sim.ctx, sim.circles, sim.canvas.width, sim.canvas.height);
     }
 
     function applyForces(circles, forceFactor, width, height) {
