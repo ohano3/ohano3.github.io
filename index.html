@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>円配置シミュレーター</title>
+    <style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    #input-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    label {
+        display: block;
+    }
+    input, button {
+        width: 100%;
+        padding: 5px;
+    }
+    #simulations-container {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+    }
+    .simulation-box {
+        width: 100%;
+        aspect-ratio: 1;
+        border: 1px solid #ccc;
+    }
+    .simulation-canvas {
+        width: 100%;
+        height: 100%;
+    }
+    .success {
+        background-color: #90EE90;
+    }
+    #result-message {
+        font-weight: bold;
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+    <h1>円配置シミュレーター</h1>
+    
+    <div id="input-container">
+        <label for="rect-width">長方形の幅 (mm):</label>
+        <input type="number" id="rect-width" min="1" value="1000" required>
+        
+        <label for="rect-height">長方形の高さ (mm):</label>
+        <input type="number" id="rect-height" min="1" value="600" required>
+        
+        <label for="circle-sizes">円の直径 (mm, カンマ区切り):</label>
+        <input type="text" id="circle-sizes" value="300,300,400,200,300,300" required>
+        
+        <label for="max-iterations">最大イテレーション数:</label>
+        <input type="number" id="max-iterations" min="1" value="1000">
+        
+        <label for="initial-temperature">初期温度:</label>
+        <input type="number" id="initial-temperature" min="0.1" step="0.1" value="100">
+        
+        <label for="cooling-rate">冷却率:</label>
+        <input type="number" id="cooling-rate" min="0.1" max="0.99" step="0.01" value="0.99">
+        
+        <button id="init-btn">初期配置</button>
+        <button id="start-btn">計算開始</button>
+        <button id="reset-btn">リセット</button>
+    </div>
+    
+    <div id="simulations-container">
+        <!-- 12個のシミュレーションボックスを追加 -->
+    </div>
+    
+    <div id="result-message"></div>
+
+<script>
+    const simulationsContainer = document.getElementById('simulations-container');
+    const initBtn = document.getElementById('init-btn');
+    const startBtn = document.getElementById('start-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const resultMessage = document.getElementById('result-message');
+
+    let simulations = [];
+
+    function createSimulations() {
+        simulationsContainer.innerHTML = '';
+        simulations = [];
+
+        for (let i = 0; i < 12; i++) {
+            const box = document.createElement('div');
+            box.className = 'simulation-box';
+            const canvas = document.createElement('canvas');
+            canvas.className = 'simulation-canvas';
+            box.appendChild(canvas);
+            simulationsContainer.appendChild(box);
+
+            const ctx = canvas.getContext('2d');
+            simulations.push({ canvas, ctx, circles: [], isSimulating: false });
+        }
+    }
+
+    function initializeSimulations() {
+        const rectWidth = parseFloat(document.getElementById('rect-width').value);
+        const rectHeight = parseFloat(document.getElementById('rect-height').value);
+        const circleSizes = document.getElementById('circle-sizes').value.split(',').map(size => parseFloat(size.trim()));
+
+        simulations.forEach(sim => {
+            sim.canvas.width = rectWidth;
+            sim.canvas.height = rectHeight;
+            
+            // 円を大きさでソート（大きい順）
+            const sortedCircles = circleSizes.map((size, index) => ({ size, index }))
+                .sort((a, b) => b.size - a.size);
+            
+            // 円の初期配置を調整
+            sim.circles = sortedCircles.map(({ size, index }, i) => {
+                const r = size / 2;
+                const x = Math.random() * (rectWidth - 2 * r) + r;
+                const y = ((sortedCircles.length - 1 - i) / (sortedCircles.length - 1)) * (rectHeight - 2 * r) + r;
+                return { x, y, r, originalIndex: index };
+            });
+            
+            drawCircles(sim.ctx, sim.circles, sim.canvas.width, sim.canvas.height);
+        });
+
+        resultMessage.textContent = '初期配置を表示しました。';
+        startBtn.disabled = false;
+    }
+
+    function startSimulations() {
+        if (simulations.some(sim => sim.isSimulating)) {
+            return;
+        }
+
+        simulations.forEach(sim => {
+            sim.isSimulating = true;
+        });
+
+        resultMessage.textContent = 'シミュレーション中...';
+        multiStageOptimizationParallel();
+    }
+
+    function multiStageOptimizationParallel() {
+        const stages = [
+            { iterations: 100, forceFactor: 1.0 },
+            { iterations: 200, forceFactor: 0.5 },
+            { iterations: 300, forceFactor: 0.1 }
+        ];
+
+        let currentStage = 0;
+
+        function optimizationStep() {
+            if (currentStage >= stages.length || simulations.every(sim => !sim.isSimulating)) {
+                simulations.forEach((sim, index) => {
+                    if (checkValidPlacement(sim.circles, sim.canvas.width, sim.canvas.height)) {
+                        sim.isSimulating = false;
+                        sim.canvas.parentElement.classList.add('success');
+                    }
+                });
+
+                if (simulations.some(sim => !sim.isSimulating)) {
+                    resultMessage.textContent = '有効な配置が見つかりました';
+                } else {
+                    resultMessage.textContent = '有効な配置が見つかりませんでした';
+                    currentStage = 0; // 再試行
+                }
+                return;
+            }
+
+            const { iterations, forceFactor } = stages[currentStage];
+
+            simulations.forEach(sim => {
+                if (sim.isSimulating) {
+                    for (let i = 0; i < iterations; i++) {
+                        applyForces(sim.circles, forceFactor, sim.canvas.width, sim.canvas.height);
+                    }
+                    drawCircles(sim.ctx, sim.circles, sim.canvas.width, sim.canvas.height);
+                }
+            });
+
+            currentStage++;
+            requestAnimationFrame(optimizationStep);
+        }
+
+        requestAnimationFrame(optimizationStep);
+    }
+
+    function applyForces(circles, forceFactor, width, height) {
+        for (let i = 0; i < circles.length; i++) {
+            let fx = 0, fy = 0;
+            for (let j = 0; j < circles.length; j++) {
+                if (i !== j) {
+                    const dx = circles[i].x - circles[j].x;
+                    const dy = circles[i].y - circles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const minDistance = circles[i].r + circles[j].r;
+                    if (distance < minDistance) {
+                        const force = (minDistance - distance) / distance;
+                        fx += dx * force;
+                        fy += dy * force;
+                    }
+                }
+            }
+            circles[i].x += fx * forceFactor;
+            circles[i].y += fy * forceFactor;
+
+            // 円が枠からはみ出した場合、枠内に戻す
+            circles[i].x = Math.max(circles[i].r, Math.min(width - circles[i].r, circles[i].x));
+            circles[i].y = Math.max(circles[i].r, Math.min(height - circles[i].r, circles[i].y));
+        }
+    }
+
+    function drawCircles(ctx, circles, width, height) {
+        ctx.clearRect(0, 0, width, height);
+        
+        // 長方形を描画
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, width, height);
+        
+        // 円を描画
+        circles.forEach(circle => {
+            ctx.beginPath();
+            ctx.arc(circle.x, circle.y, circle.r, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+    }
+
+    function checkValidPlacement(circles, width, height) {
+        for (let i = 0; i < circles.length; i++) {
+            // 円が枠内に収まっているかチェック（完全に内側である必要はない）
+            if (circles[i].x < 0 || circles[i].x > width ||
+                circles[i].y < 0 || circles[i].y > height) {
+                return false;
+            }
+
+            for (let j = i + 1; j < circles.length; j++) {
+                const dx = circles[i].x - circles[j].x;
+                const dy = circles[i].y - circles[j].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < circles[i].r + circles[j].r) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    initBtn.addEventListener('click', () => {
+        createSimulations();
+        initializeSimulations();
+    });
+
+    startBtn.addEventListener('click', startSimulations);
+    startBtn.disabled = true;
+
+    resetBtn.addEventListener('click', () => {
+        simulations.forEach(sim => {
+            sim.isSimulating = false;
+            sim.ctx.clearRect(0, 0, sim.canvas.width, sim.canvas.height);
+            sim.canvas.parentElement.classList.remove('success');
+        });
+        resultMessage.textContent = '';
+        startBtn.disabled = true;
+    });
+
+    // 初期化
+    createSimulations();
+</script>
+</body>
+</html>
