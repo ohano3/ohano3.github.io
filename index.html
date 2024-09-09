@@ -112,6 +112,7 @@
         simulations.forEach(sim => {
             sim.canvas.width = rectWidth;
             sim.canvas.height = rectHeight;
+            sim.isSimulating = false;
             
             // 円を大きさでソート（大きい順）
             const sortedCircles = circleSizes.map((size, index) => ({ size, index }))
@@ -120,8 +121,10 @@
             // 円の初期配置を調整
             sim.circles = sortedCircles.map(({ size, index }, i) => {
                 const r = size / 2;
-                const x = Math.random() * (rectWidth - 2 * r) + r;
-                const y = ((sortedCircles.length - 1 - i) / (sortedCircles.length - 1)) * (rectHeight - 2 * r) + r;
+                const angle = (2 * Math.PI * i) / sortedCircles.length;
+                const radius = Math.min(rectWidth, rectHeight) * 0.4;
+                const x = rectWidth / 2 + radius * Math.cos(angle);
+                const y = rectHeight / 2 + radius * Math.sin(angle);
                 return { x, y, r, originalIndex: index };
             });
             
@@ -231,6 +234,18 @@
                     }
                 }
             }
+
+            // 枠外に出た場合、中心に向かう力を加える
+            const centerForce = 0.05;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            if (circles[i].x - circles[i].r < 0 || circles[i].x + circles[i].r > width) {
+                fx += (centerX - circles[i].x) * centerForce;
+            }
+            if (circles[i].y - circles[i].r < 0 || circles[i].y + circles[i].r > height) {
+                fy += (centerY - circles[i].y) * centerForce;
+            }
+
             circles[i].x += fx * forceFactor;
             circles[i].y += fy * forceFactor;
 
@@ -260,6 +275,7 @@
         for (let i = 0; i < circles.length; i++) {
             // 円が枠内に収まっているかチェック（完全に内側である必要はない）
             if (circles[i].x < 0 || circles[i].x > width ||
+            
                 circles[i].y < 0 || circles[i].y > height) {
                 return false;
             }
@@ -286,7 +302,11 @@
             sim.canvas.parentElement.classList.remove('success');
         });
         resultMessage.textContent = '';
-        startBtn.disabled = true;
+        startBtn.disabled = false;
+        
+        // すべての枠を初期化
+        createSimulations();
+        initializeSimulations();
     });
 
     // 初期化の削除
