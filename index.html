@@ -58,7 +58,7 @@
         <input type="number" id="rect-height" min="1" value="600" required>
         
         <label for="circle-sizes">円の直径 (mm, カンマ区切り):</label>
-        <input type="text" id="circle-sizes" value="300,300,400,200,300,300,100,100" required>
+        <input type="text" id="circle-sizes" value="300,300,400,200,300,300,110,110,110,110" required>
         
         <label for="max-iterations">最大イテレーション数:</label>
         <input type="number" id="max-iterations" min="1" value="1000">
@@ -143,7 +143,10 @@
             sim.isSimulating = true;
         });
 
-        resultMessage.textContent = 'シミュレーション中...';
+        // 充填率を計算して表示
+        const fillRate = calculateFillRate();
+        resultMessage.textContent = `充填率: ${fillRate.toFixed(2)}% - シミュレーション中...`;
+
         multiStageOptimizationParallel();
     }
 
@@ -156,6 +159,7 @@
 
         let currentStage = 0;
         const expectedCircleCount = document.getElementById('circle-sizes').value.split(',').length;
+        const fillRate = calculateFillRate();
 
         function optimizationStep() {
             if (currentStage >= stages.length) {
@@ -165,16 +169,16 @@
                     if (validCircles === expectedCircleCount && checkValidPlacement(sim.circles, sim.canvas.width, sim.canvas.height)) {
                         sim.isSimulating = false;
                         sim.canvas.parentElement.classList.add('success');
-                        drawCircleLabels(sim.ctx, sim.circles); // 直径ラベルを追加
+                        drawCircleLabels(sim.ctx, sim.circles);
                     } else {
                         allValid = false;
                     }
                 });
 
                 if (allValid) {
-                    resultMessage.textContent = 'すべての配置が見つかりました';
+                    resultMessage.textContent = `充填率: ${fillRate.toFixed(2)}% - すべての配置が見つかりました`;
                 } else {
-                    resultMessage.textContent = '一部の配置が無効です。再試行中...';
+                    resultMessage.textContent = `充填率: ${fillRate.toFixed(2)}% - 一部の配置が無効です。再試行中...`;
                     currentStage = 0;
                     simulations.forEach(sim => {
                         if (sim.isSimulating) {
@@ -316,6 +320,18 @@
             circle.y - circle.r >= 0 && 
             circle.y + circle.r <= height
         ).length;
+    }
+
+    // 充填率を計算する関数を追加
+    function calculateFillRate() {
+        const rectWidth = parseFloat(document.getElementById('rect-width').value);
+        const rectHeight = parseFloat(document.getElementById('rect-height').value);
+        const circleSizes = document.getElementById('circle-sizes').value.split(',').map(size => parseFloat(size.trim()));
+        
+        const rectArea = rectWidth * rectHeight;
+        const circlesArea = circleSizes.reduce((sum, diameter) => sum + Math.PI * (diameter / 2) ** 2, 0);
+        
+        return (circlesArea / rectArea) * 100;
     }
 
     startBtn.addEventListener('click', startSimulations);
