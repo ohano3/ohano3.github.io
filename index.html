@@ -69,8 +69,7 @@
         <label for="cooling-rate">冷却率:</label>
         <input type="number" id="cooling-rate" min="0.1" max="0.99" step="0.01" value="0.99">
         
-        <button id="init-btn">初期配置</button>
-        <button id="start-btn">計算開始</button>
+        <button id="start-btn">シミュレーション開始</button>
         <button id="reset-btn">リセット</button>
     </div>
     
@@ -82,7 +81,6 @@
 
 <script>
     const simulationsContainer = document.getElementById('simulations-container');
-    const initBtn = document.getElementById('init-btn');
     const startBtn = document.getElementById('start-btn');
     const resetBtn = document.getElementById('reset-btn');
     const resultMessage = document.getElementById('result-message');
@@ -135,9 +133,8 @@
     }
 
     function startSimulations() {
-        if (simulations.some(sim => sim.isSimulating)) {
-            return;
-        }
+        createSimulations();
+        initializeSimulations();
 
         simulations.forEach(sim => {
             sim.isSimulating = true;
@@ -253,13 +250,8 @@
         return true;
     }
 
-    initBtn.addEventListener('click', () => {
-        createSimulations();
-        initializeSimulations();
-    });
-
     startBtn.addEventListener('click', startSimulations);
-    startBtn.disabled = true;
+    startBtn.disabled = false;
 
     resetBtn.addEventListener('click', () => {
         simulations.forEach(sim => {
@@ -271,8 +263,8 @@
         startBtn.disabled = true;
     });
 
-    // 初期化
-    createSimulations();
+    // 初期化の削除
+    // createSimulations();
 </script>
 </body>
 </html>
