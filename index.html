@@ -69,6 +69,9 @@
         <label for="cooling-rate">冷却率:</label>
         <input type="number" id="cooling-rate" min="0.1" max="0.99" step="0.01" value="0.99">
         
+        <label for="left-bottom-toggle">大きい円を左下に配置:</label>
+        <input type="checkbox" id="left-bottom-toggle">
+        
         <button id="start-btn">シミュレーション開始</button>
         <button id="reset-btn">リセット</button>
     </div>
@@ -121,10 +124,8 @@
             // 円の初期配置を調整
             sim.circles = sortedCircles.map(({ size, index }, i) => {
                 const r = size / 2;
-                const angle = (2 * Math.PI * i) / sortedCircles.length;
-                const radius = Math.min(rectWidth, rectHeight) * 0.4;
-                const x = rectWidth / 2 + radius * Math.cos(angle);
-                const y = rectHeight / 2 + radius * Math.sin(angle);
+                const x = Math.random() * (rectWidth - 2 * r) + r;
+                const y = ((sortedCircles.length - 1 - i) / (sortedCircles.length - 1)) * (rectHeight - 2 * r) + r;
                 return { x, y, r, originalIndex: index };
             });
             
@@ -141,6 +142,7 @@
 
         simulations.forEach(sim => {
             sim.isSimulating = true;
+            sim.leftBottomEnabled = document.getElementById('left-bottom-toggle').checked;
         });
 
         resultMessage.textContent = 'シミュレーション中...';
@@ -224,6 +226,8 @@
     }
 
     function applyForces(circles, forceFactor, width, height) {
+        const leftBottomEnabled = document.getElementById('left-bottom-toggle').checked;
+
         for (let i = 0; i < circles.length; i++) {
             let fx = 0, fy = 0;
             for (let j = 0; j < circles.length; j++) {
@@ -249,6 +253,16 @@
             }
             if (circles[i].y - circles[i].r < 0 || circles[i].y + circles[i].r > height) {
                 fy += (centerY - circles[i].y) * centerForce;
+            }
+
+            if (leftBottomEnabled) {
+                // 大きさに応じた下方向への力を追加
+                const downwardForce = 0.002 * circles[i].r;
+                fy += downwardForce;
+
+                // 大きさに応じた左方向への力を追加
+                const leftwardForce = 0.001 * circles[i].r;
+                fx -= leftwardForce;
             }
 
             circles[i].x += fx * forceFactor;
