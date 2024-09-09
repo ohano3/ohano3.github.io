@@ -155,20 +155,25 @@
         ];
 
         let currentStage = 0;
+        const expectedCircleCount = document.getElementById('circle-sizes').value.split(',').length;
 
         function optimizationStep() {
             if (currentStage >= stages.length) {
+                let allValid = true;
                 simulations.forEach((sim, index) => {
-                    if (checkValidPlacement(sim.circles, sim.canvas.width, sim.canvas.height)) {
+                    const validCircles = countValidCircles(sim.circles, sim.canvas.width, sim.canvas.height);
+                    if (validCircles === expectedCircleCount && checkValidPlacement(sim.circles, sim.canvas.width, sim.canvas.height)) {
                         sim.isSimulating = false;
                         sim.canvas.parentElement.classList.add('success');
+                    } else {
+                        allValid = false;
                     }
                 });
 
-                if (simulations.every(sim => !sim.isSimulating)) {
+                if (allValid) {
                     resultMessage.textContent = 'すべての配置が見つかりました';
                 } else {
-                    resultMessage.textContent = '一部の配置が見つかりました。再試行中...';
+                    resultMessage.textContent = '一部の配置が無効です。再試行中...';
                     currentStage = 0;
                     simulations.forEach(sim => {
                         if (sim.isSimulating) {
@@ -273,10 +278,9 @@
 
     function checkValidPlacement(circles, width, height) {
         for (let i = 0; i < circles.length; i++) {
-            // 円が枠内に収まっているかチェック（完全に内側である必要はない）
-            if (circles[i].x < 0 || circles[i].x > width ||
-            
-                circles[i].y < 0 || circles[i].y > height) {
+            // 円が枠内に完全に収まっているかチェック
+            if (circles[i].x - circles[i].r < 0 || circles[i].x + circles[i].r > width ||
+                circles[i].y - circles[i].r < 0 || circles[i].y + circles[i].r > height) {
                 return false;
             }
 
@@ -290,6 +294,15 @@
             }
         }
         return true;
+    }
+
+    function countValidCircles(circles, width, height) {
+        return circles.filter(circle => 
+            circle.x - circle.r >= 0 && 
+            circle.x + circle.r <= width && 
+            circle.y - circle.r >= 0 && 
+            circle.y + circle.r <= height
+        ).length;
     }
 
     startBtn.addEventListener('click', startSimulations);
